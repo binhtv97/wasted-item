@@ -1,0 +1,4 @@
+outlet,item_code,item_label,unit,total,color
+OUTLET001,BREAD,Bread Rolls,pieces,6,#D2691E
+OUTLET001,MEAT,Meat Patties,pieces,6,#8B4513
+OUTLET001,BEVERAGES,Beverages,liters,0,#4169E1
