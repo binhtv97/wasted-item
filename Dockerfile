@@ -34,6 +34,7 @@ COPY --from=builder /app/build ./build
 # Copy generated Prisma client artifacts from builder to avoid DB env at build
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/seed.cjs ./seed.cjs
 
 # Optional: copy public assets if needed (already included by build)
 # COPY --from=builder /app/public ./public
