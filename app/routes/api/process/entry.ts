@@ -17,10 +17,13 @@ export async function action({ request }: ActionFunctionArgs) {
     const delta = Number(form.get("delta")); // +1 or -1
 
     if (!itemId || ![1, -1].includes(delta)) {
-      return new Response(JSON.stringify({ error: "Invalid itemId or delta" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Invalid itemId or delta" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
     const item = await prisma.wasteItem.findUnique({
@@ -42,16 +45,7 @@ export async function action({ request }: ActionFunctionArgs) {
       });
     }
 
-    const reason = await prisma.wasteReason.findFirst({
-      where: { reasonCode: "OVERPRODUCTION" },
-      select: { id: true },
-    });
-    if (!reason) {
-      return new Response(JSON.stringify({ error: "Reason not found" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    // Reason has been removed; entries no longer require reasonId
 
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -62,29 +56,33 @@ export async function action({ request }: ActionFunctionArgs) {
       where: { itemId: item.id, recordedAt: { gte: start, lte: end } },
       _sum: { quantity: true },
     });
-    const current = typeof agg._sum.quantity === "object" ? Number(agg._sum.quantity as any) : Number(agg._sum.quantity ?? 0);
+    const current =
+      typeof agg._sum.quantity === "object"
+        ? Number(agg._sum.quantity as any)
+        : Number(agg._sum.quantity ?? 0);
 
     if (delta === -1 && current <= 0) {
-      return new Response(JSON.stringify({ success: true, skipped: true, total: current }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, total: current }),
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
     const entry = await prisma.wasteEntry.create({
       data: {
         outletId: outlet.id,
         itemId: item.id,
-        reasonId: reason.id,
         quantity: delta,
         unit: item.unit,
       },
       select: { id: true, itemId: true, quantity: true, recordedAt: true },
     });
 
-    return new Response(
-      JSON.stringify({ success: true, entry }),
-      { headers: { "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ success: true, entry }), {
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("Process entry error:", error);
     return new Response(JSON.stringify({ error: "Internal server error" }), {

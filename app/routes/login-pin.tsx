@@ -66,6 +66,9 @@ export default function LoginPinPage({ loaderData }: Route.ComponentProps) {
         setMessage(data.error || "Login failed");
         return;
       }
+      try {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      } catch {}
       navigate("/process");
     } catch (err) {
       setMessage("Network error");

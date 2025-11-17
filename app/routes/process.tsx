@@ -62,8 +62,21 @@ export default function Process({ loaderData }: Route.ComponentProps) {
     } | null;
   };
   const [items, setItems] = useState(initial);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [toast, setToast] = useState<string>("");
+  const toastTimerRef = useRef<number | null>(null);
   const timers = useRef<Record<number, number>>({});
   const lastClosedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("user");
+      if (raw) {
+        const u = JSON.parse(raw);
+        setIsAdmin(String(u.role).toLowerCase() === "admin");
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     const tz = outlet?.timezone || "UTC";
@@ -109,11 +122,20 @@ export default function Process({ loaderData }: Route.ComponentProps) {
     );
     console.log("applyDelta", id, delta);
     try {
-      await fetch("/api/process/entry", {
+      const res = await fetch("/api/process/entry", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ itemId: String(id), delta: String(delta) }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data && !data.skipped) {
+        const it = items.find((x) => x.id === id);
+        const label = it ? it.label : String(id);
+        const msg = delta === 1 ? `${label} was increased 1` : `${label} was reduced 1`;
+        setToast(msg);
+        if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = window.setTimeout(() => setToast(""), 3000);
+      }
     } catch (err) {
       console.error("applyDelta error", err);
     }
@@ -139,6 +161,19 @@ export default function Process({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className="min-h-screen w-full p-4">
+      {toast && (
+        <div className="max-w-5xl mx-auto mb-3 px-4 py-2 rounded bg-green-600 text-white">{toast}</div>
+      )}
+      <div className="max-w-5xl mx-auto flex justify-end mb-4">
+        {isAdmin && (
+          <button
+            className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+            onClick={() => navigate("/portal")}
+          >
+            Edit Info
+          </button>
+        )}
+      </div>
       <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-8">
         {items.map((it) => (
           <div key={it.id} className="flex items-center justify-center">

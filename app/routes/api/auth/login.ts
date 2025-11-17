@@ -46,6 +46,7 @@ export async function action({ request }: ActionFunctionArgs) {
           email: user.email,
           username: user.username,
           name: user.name,
+          role: user.role,
           createdAt: user.createdAt,
         },
       }),

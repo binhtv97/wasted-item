@@ -1,0 +1,8 @@
+outlet,item_code,item_label,unit,total,color
+OUTLET001,BREAD,Bread Rolls,pieces,7,#D2691E
+OUTLET001,MEAT,Meat Patties,pieces,9,#8B4513
+OUTLET001,BEVERAGES,Beverages,liters,4,#4169E1
+OUTLET001,FRIES,French Fries,kg,4,#FFD700
+OUTLET001,PACKAGING,Packaging Materials,pieces,2,#696969
+OUTLET001,VEGETABLES,Fresh Vegetables,kg,3,#228B22
+OUTLET001,TEST1,1,pieces,6,#D2691E

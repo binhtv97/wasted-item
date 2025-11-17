@@ -4,8 +4,15 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  const defaultOutlet = await prisma.outlet.create({
-    data: {
+  const defaultOutlet = await prisma.outlet.upsert({
+    where: { outletCode: 'OUTLET001' },
+    update: {
+      name: 'Main Street Location',
+      address: '123 Main St, City',
+      timezone: 'America/New_York',
+      closingTime: '23:00',
+    },
+    create: {
       outletCode: 'OUTLET001',
       name: 'Main Street Location',
       address: '123 Main St, City',
@@ -23,32 +30,23 @@ async function main() {
       { itemCode: 'BEVERAGES', label: 'Beverages', unit: 'liters', icon: '🥤', color: '#4169E1', displayOrder: 5 },
       { itemCode: 'PACKAGING', label: 'Packaging Materials', unit: 'pieces', icon: '📦', color: '#696969', displayOrder: 6 },
     ],
+    skipDuplicates: true,
   });
 
-  await prisma.wasteReason.createMany({
-    data: [
-      { reasonCode: 'EXPIRED', description: 'Product expired', displayOrder: 1 },
-      { reasonCode: 'DAMAGED', description: 'Product damaged', displayOrder: 2 },
-      { reasonCode: 'OVERPRODUCTION', description: 'Overproduction', displayOrder: 3 },
-      { reasonCode: 'TEMPERATURE', description: 'Temperature control issue', displayOrder: 4 },
-      { reasonCode: 'QUALITY', description: 'Quality issue', displayOrder: 5 },
-      { reasonCode: 'OTHER', description: 'Other reason', displayOrder: 6 },
-    ],
+  const adminPin = await bcrypt.hash('1111', 10);
+  const userPin = await bcrypt.hash('1234', 10);
+  const admin = await prisma.user.upsert({
+    where: { username: 'testadmin' },
+    update: { pinHash: adminPin, role: 'admin', outletId: defaultOutlet.id, name: 'Test Admin' },
+    create: { username: 'testadmin', pinHash: adminPin, role: 'admin', outletId: defaultOutlet.id, name: 'Test Admin' },
+  });
+  const user = await prisma.user.upsert({
+    where: { username: 'testuser' },
+    update: { pinHash: userPin, role: 'user', outletId: defaultOutlet.id, name: 'Test User' },
+    create: { username: 'testuser', pinHash: userPin, role: 'user', outletId: defaultOutlet.id, name: 'Test User' },
   });
 
-  const pinHash = await bcrypt.hash('1234', 10);
-  const testUser = await prisma.user.create({
-    data: {
-      email: 'test@example.com',
-      username: 'testuser',
-      pinHash,
-      name: 'Test User',
-      outletId: defaultOutlet.id,
-      role: 'manager',
-    },
-  });
-
-  console.log('Seeding completed successfully:', { outletId: defaultOutlet.id, userId: testUser.id });
+  console.log('Seeding completed successfully:', { outletId: defaultOutlet.id, adminId: admin.id, userId: user.id });
 
   const existingSetting = await prisma.reportSetting.findFirst();
   if (!existingSetting) {

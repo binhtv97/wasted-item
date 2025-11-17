@@ -154,8 +154,14 @@ async function tick() {
 }
 
 async function main() {
-  console.log("Report worker started");
+  const once = process.argv.includes("--once");
+  console.log(`Report worker started${once ? " (once)" : ""}`);
   await tick();
+  if (once) {
+    try { await prisma.$disconnect(); } catch {}
+    console.log("Report worker finished (once)");
+    return;
+  }
   setInterval(tick, 60_000);
 }
 
