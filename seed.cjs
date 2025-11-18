@@ -65,6 +65,40 @@ async function main() {
       ],
     });
   }
+
+  // Seed one month of dummy WasteEntry data for CSV export testing
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0, 0);
+  const startNextMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 1, 0, 0, 0, 0);
+  const monthExisting = await prisma.wasteEntry.count({
+    where: { recordedAt: { gte: startOfMonth, lt: startNextMonth } },
+  });
+  if (monthExisting === 0) {
+    const items = await prisma.wasteItem.findMany({ select: { id: true, unit: true } });
+    const days = Math.round((startNextMonth.getTime() - startOfMonth.getTime()) / 86_400_000);
+    const data = [];
+    for (let d = 0; d < days; d++) {
+      const dayDate = new Date(startOfMonth.getTime() + d * 86_400_000);
+      for (const it of items) {
+        const qty = Math.floor(Math.random() * 6); // 0..5
+        if (qty > 0) {
+          data.push({
+            outletId: defaultOutlet.id,
+            itemId: it.id,
+            quantity: qty,
+            unit: it.unit,
+            recordedAt: dayDate,
+          });
+        }
+      }
+    }
+    if (data.length > 0) {
+      await prisma.wasteEntry.createMany({ data });
+      console.log(`Seeded ${data.length} WasteEntry rows for current month`);
+    }
+  } else {
+    console.log('Monthly WasteEntry data already exists, skipping');
+  }
 }
 
 main()

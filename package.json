@@ -10,6 +10,8 @@
     "typecheck": "react-router typegen && tsc",
     "test": "vitest run",
     "report:worker": "node scripts/report-worker.js",
+    "report:worker:run": "node scripts/report-worker.js",
+    "report:worker:once": "node scripts/report-worker.js --once",
     "export:csv": "node scripts/export-csv.js"
   },
   "dependencies": {

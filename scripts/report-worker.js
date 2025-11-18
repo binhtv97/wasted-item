@@ -11,7 +11,13 @@ function getSettingsDefaults() {
 
 async function getSettings() {
   const s = await prisma.reportSetting.findFirst();
-  return s ? { timezone: s.timezone, utcOffsetMinutes: s.utcOffsetMinutes, cutOffHour: s.cutOffHour } : getSettingsDefaults();
+  return s
+    ? {
+        timezone: s.timezone,
+        utcOffsetMinutes: s.utcOffsetMinutes,
+        cutOffHour: s.cutOffHour,
+      }
+    : getSettingsDefaults();
 }
 
 function getPeriodRange(period, settings) {
@@ -33,13 +39,24 @@ function getPeriodRange(period, settings) {
   if (period === "daily") {
     if (nowLocal.getHours() < cut) {
       const prev = addDays(-1, nowLocal);
-      startLocal.setFullYear(prev.getFullYear(), prev.getMonth(), prev.getDate());
+      startLocal.setFullYear(
+        prev.getFullYear(),
+        prev.getMonth(),
+        prev.getDate()
+      );
     } else {
-      startLocal.setFullYear(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate());
+      startLocal.setFullYear(
+        nowLocal.getFullYear(),
+        nowLocal.getMonth(),
+        nowLocal.getDate()
+      );
     }
     startLocal.setHours(cut);
     const endLocal = addDays(1, startLocal);
-    return { startUTC: new Date(startLocal.getTime() - offset * 60_000), endUTC: new Date(endLocal.getTime() - offset * 60_000) };
+    return {
+      startUTC: new Date(startLocal.getTime() - offset * 60_000),
+      endUTC: new Date(endLocal.getTime() - offset * 60_000),
+    };
   }
 
   if (period === "weekly") {
@@ -49,20 +66,38 @@ function getPeriodRange(period, settings) {
     if (daysSinceMonday === 0 && nowLocal.getHours() < cut) {
       monday = addDays(-7, monday);
     }
-    startLocal.setFullYear(monday.getFullYear(), monday.getMonth(), monday.getDate());
+    startLocal.setFullYear(
+      monday.getFullYear(),
+      monday.getMonth(),
+      monday.getDate()
+    );
     startLocal.setHours(cut);
     const endLocal = addDays(7, startLocal);
-    return { startUTC: new Date(startLocal.getTime() - offset * 60_000), endUTC: new Date(endLocal.getTime() - offset * 60_000) };
+    return {
+      startUTC: new Date(startLocal.getTime() - offset * 60_000),
+      endUTC: new Date(endLocal.getTime() - offset * 60_000),
+    };
   }
 
   const first = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), 1);
   if (nowLocal.getDate() === 1 && nowLocal.getHours() < cut) {
     first.setMonth(first.getMonth() - 1);
   }
-  startLocal.setFullYear(first.getFullYear(), first.getMonth(), first.getDate());
+  startLocal.setFullYear(
+    first.getFullYear(),
+    first.getMonth(),
+    first.getDate()
+  );
   startLocal.setHours(cut);
-  const nextMonth = new Date(startLocal.getFullYear(), startLocal.getMonth() + 1, startLocal.getDate());
-  return { startUTC: new Date(startLocal.getTime() - offset * 60_000), endUTC: new Date(nextMonth.getTime() - offset * 60_000) };
+  const nextMonth = new Date(
+    startLocal.getFullYear(),
+    startLocal.getMonth() + 1,
+    startLocal.getDate()
+  );
+  return {
+    startUTC: new Date(startLocal.getTime() - offset * 60_000),
+    endUTC: new Date(nextMonth.getTime() - offset * 60_000),
+  };
 }
 
 async function generateCsv(period) {
@@ -79,11 +114,28 @@ async function generateCsv(period) {
       item: { select: { itemCode: true, label: true, color: true } },
     },
   });
-  const header = ["date", "outlet", "item_code", "item_label", "unit", "count", "color"];
+  const header = [
+    "date",
+    "outlet",
+    "item_code",
+    "item_label",
+    "unit",
+    "count",
+    "color",
+  ];
   const rows = entries.map((e) => {
     const dateISO = e.recordedAt.toISOString();
-    const count = typeof e.quantity === "object" ? String(e.quantity) : String(e.quantity);
-    return [dateISO, e.outlet.outletCode, e.item.itemCode, e.item.label, e.unit, count, e.item.color];
+    const count =
+      typeof e.quantity === "object" ? String(e.quantity) : String(e.quantity);
+    return [
+      dateISO,
+      e.outlet.outletCode,
+      e.item.itemCode,
+      e.item.label,
+      e.unit,
+      count,
+      e.item.color,
+    ];
   });
   const csv = [header.join(","), ...rows.map((r) => r.join(","))].join("\n");
   const today = new Date();
@@ -134,7 +186,9 @@ async function tick() {
   const nowLocal = new Date(nowUTC.getTime() + offset * 60_000);
   const minutes = nowLocal.getHours() * 60 + nowLocal.getMinutes();
 
-  const recipients = await prisma.reportRecipient.findMany({ where: { isActive: true } });
+  const recipients = await prisma.reportRecipient.findMany({
+    where: { isActive: true },
+  });
   for (const r of recipients) {
     if (r.sendTimeMin === minutes) {
       const period = String(r.reportType).toLowerCase();
@@ -158,7 +212,9 @@ async function main() {
   console.log(`Report worker started${once ? " (once)" : ""}`);
   await tick();
   if (once) {
-    try { await prisma.$disconnect(); } catch {}
+    try {
+      await prisma.$disconnect();
+    } catch {}
     console.log("Report worker finished (once)");
     return;
   }
@@ -169,3 +225,25 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
+
+// async function main() {
+//   // const once = process.argv.includes("--once");
+//   // console.log(`Report worker started${once ? " (once)" : ""}`);
+//   // await tick();
+//   // if (once) {
+//   //   try { await prisma.$disconnect(); } catch {}
+//   //   console.log("Report worker finished (once)");
+//   //   return;
+//   // }
+//   // setInterval(tick, 60_000);
+//   await sendReportEmail({
+//     to: "binhtvse63547@gmail.com",
+//     period: "monthly",
+//     csv: "date,outlet,item_code,item_label,unit,count,color\n2023-10-01,12345,FOOD001,Chicken Breast,kg,2.5,#FF0000",
+//   });
+// }
+
+// main().catch((e) => {
+//   console.error(e);
+//   process.exit(1);
+// });
