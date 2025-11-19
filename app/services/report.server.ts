@@ -12,14 +12,13 @@ function getSettingsDefaults() {
 
 export async function getSettings() {
   try {
-    const s = await prisma.reportSetting.findFirst();
-    return s
-      ? {
-          timezone: s.timezone,
-          utcOffsetMinutes: s.utcOffsetMinutes,
-          cutOffHour: s.cutOffHour,
-        }
-      : getSettingsDefaults();
+    const o = await prisma.outlet.findFirst({ where: { isActive: true }, orderBy: { id: "asc" }, select: { timezone: true } });
+    const tz = o?.timezone || "UTC";
+    const fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset", hour12: false });
+    const name = fmt.formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value || "UTC";
+    const m = name.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/);
+    const offset = m ? Number(m[1]) * 60 + Number(m[2] || 0) : 0;
+    return { timezone: tz, utcOffsetMinutes: offset, cutOffHour: 0 };
   } catch {
     return getSettingsDefaults();
   }
@@ -27,18 +26,14 @@ export async function getSettings() {
 
 export function getPeriodRange(
   period: Period,
-  settings: { utcOffsetMinutes: number; cutOffHour: number }
+  settings: { utcOffsetMinutes: number }
 ) {
   const offset = settings.utcOffsetMinutes;
   const nowUTC = new Date();
   const nowLocalMs = nowUTC.getTime() + offset * 60_000;
   const nowLocal = new Date(nowLocalMs);
-
   const startLocal = new Date(nowLocal);
   startLocal.setMinutes(0, 0, 0);
-  // Determine local start based on cutoff
-  const cut = settings.cutOffHour;
-  const localHour = nowLocal.getHours();
 
   const addDays = (d: number, date: Date) => {
     const n = new Date(date);
@@ -47,21 +42,12 @@ export function getPeriodRange(
   };
 
   if (period === "daily") {
-    if (localHour < cut) {
-      const prev = addDays(-1, nowLocal);
-      startLocal.setFullYear(
-        prev.getFullYear(),
-        prev.getMonth(),
-        prev.getDate()
-      );
-    } else {
-      startLocal.setFullYear(
-        nowLocal.getFullYear(),
-        nowLocal.getMonth(),
-        nowLocal.getDate()
-      );
-    }
-    startLocal.setHours(cut);
+    startLocal.setFullYear(
+      nowLocal.getFullYear(),
+      nowLocal.getMonth(),
+      nowLocal.getDate()
+    );
+    startLocal.setHours(0);
     const endLocal = addDays(1, startLocal);
     return {
       startUTC: new Date(startLocal.getTime() - offset * 60_000),
@@ -70,20 +56,16 @@ export function getPeriodRange(
   }
 
   if (period === "weekly") {
-    // Week starts Monday at cutOffHour
+    // Week starts Monday 00:00 local
     const day = nowLocal.getDay(); // 0 Sun ... 6 Sat
     const daysSinceMonday = (day + 6) % 7;
-    let monday = addDays(-daysSinceMonday, nowLocal);
-    // If before cutoff on the first day, move to previous week
-    if (daysSinceMonday === 0 && localHour < cut) {
-      monday = addDays(-7, monday);
-    }
+    const monday = addDays(-daysSinceMonday, nowLocal);
     startLocal.setFullYear(
       monday.getFullYear(),
       monday.getMonth(),
       monday.getDate()
     );
-    startLocal.setHours(cut);
+    startLocal.setHours(0);
     const endLocal = addDays(7, startLocal);
     return {
       startUTC: new Date(startLocal.getTime() - offset * 60_000),
@@ -91,18 +73,14 @@ export function getPeriodRange(
     };
   }
 
-  // monthly
+  // monthly: start at day 1 00:00 local
   const first = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), 1);
-  // If before cutoff on day 1, use previous month
-  if (nowLocal.getDate() === 1 && localHour < cut) {
-    first.setMonth(first.getMonth() - 1);
-  }
   startLocal.setFullYear(
     first.getFullYear(),
     first.getMonth(),
     first.getDate()
   );
-  startLocal.setHours(cut);
+  startLocal.setHours(0);
   const nextMonth = new Date(
     startLocal.getFullYear(),
     startLocal.getMonth() + 1,

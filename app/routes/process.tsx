@@ -6,6 +6,7 @@ import { useNavigate } from "react-router";
 const prisma = new PrismaClient();
 
 export async function loader({}: Route.LoaderArgs) {
+  const required = process.env.IS_REQUIRED_LOGIN === "true";
   const items = await prisma.wasteItem.findMany({
     where: { isActive: true },
     select: { id: true, label: true, color: true, icon: true },
@@ -42,12 +43,17 @@ export async function loader({}: Route.LoaderArgs) {
       count: counts.get(it.id) ?? 0,
     })),
     outlet,
+    required,
   };
 }
 
 export default function Process({ loaderData }: Route.ComponentProps) {
   const navigate = useNavigate();
-  const { items: initial, outlet } = loaderData as {
+  const {
+    items: initial,
+    outlet,
+    required,
+  } = loaderData as {
     items: {
       id: number;
       label: string;
@@ -60,6 +66,7 @@ export default function Process({ loaderData }: Route.ComponentProps) {
       timezone: string;
       closingTime?: string | null;
     } | null;
+    required: boolean;
   };
   const [items, setItems] = useState(initial);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -74,9 +81,11 @@ export default function Process({ loaderData }: Route.ComponentProps) {
       if (raw) {
         const u = JSON.parse(raw);
         setIsAdmin(String(u.role).toLowerCase() === "admin");
+      } else if (required) {
+        navigate("/login-pin");
       }
     } catch {}
-  }, []);
+  }, [required, navigate]);
 
   useEffect(() => {
     const tz = outlet?.timezone || "UTC";
@@ -131,7 +140,8 @@ export default function Process({ loaderData }: Route.ComponentProps) {
       if (res.ok && data && !data.skipped) {
         const it = items.find((x) => x.id === id);
         const label = it ? it.label : String(id);
-        const msg = delta === 1 ? `${label} was increased 1` : `${label} was reduced 1`;
+        const msg =
+          delta === 1 ? `${label} was increased 1` : `${label} was reduced 1`;
         setToast(msg);
         if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
         toastTimerRef.current = window.setTimeout(() => setToast(""), 3000);
@@ -162,7 +172,9 @@ export default function Process({ loaderData }: Route.ComponentProps) {
   return (
     <div className="min-h-screen w-full p-4">
       {toast && (
-        <div className="max-w-5xl mx-auto mb-3 px-4 py-2 rounded bg-green-600 text-white">{toast}</div>
+        <div className="max-w-5xl mx-auto mb-3 px-4 py-2 rounded bg-green-600 text-white">
+          {toast}
+        </div>
       )}
       <div className="max-w-5xl mx-auto flex justify-end mb-4">
         {isAdmin && (

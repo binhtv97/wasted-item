@@ -10,14 +10,16 @@ function getSettingsDefaults() {
 }
 
 async function getSettings() {
-  const s = await prisma.reportSetting.findFirst();
-  return s
-    ? {
-        timezone: s.timezone,
-        utcOffsetMinutes: s.utcOffsetMinutes,
-        cutOffHour: s.cutOffHour,
-      }
-    : getSettingsDefaults();
+  const o = await prisma.outlet.findFirst({ where: { isActive: true }, orderBy: { id: "asc" }, select: { timezone: true } });
+  const tz = o?.timezone || "UTC";
+  let offset = 0;
+  try {
+    const fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset", hour12: false });
+    const name = fmt.formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value || "UTC";
+    const m = name.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/);
+    offset = m ? Number(m[1]) * 60 + Number(m[2] || 0) : 0;
+  } catch {}
+  return { timezone: tz, utcOffsetMinutes: offset, cutOffHour: 0 };
 }
 
 function getPeriodRange(period, settings) {
@@ -32,26 +34,16 @@ function getPeriodRange(period, settings) {
     return n;
   };
 
-  const cut = settings.cutOffHour;
   const startLocal = new Date(nowLocal);
   startLocal.setMinutes(0, 0, 0);
 
   if (period === "daily") {
-    if (nowLocal.getHours() < cut) {
-      const prev = addDays(-1, nowLocal);
-      startLocal.setFullYear(
-        prev.getFullYear(),
-        prev.getMonth(),
-        prev.getDate()
-      );
-    } else {
-      startLocal.setFullYear(
-        nowLocal.getFullYear(),
-        nowLocal.getMonth(),
-        nowLocal.getDate()
-      );
-    }
-    startLocal.setHours(cut);
+    startLocal.setFullYear(
+      nowLocal.getFullYear(),
+      nowLocal.getMonth(),
+      nowLocal.getDate()
+    );
+    startLocal.setHours(0);
     const endLocal = addDays(1, startLocal);
     return {
       startUTC: new Date(startLocal.getTime() - offset * 60_000),
@@ -62,16 +54,13 @@ function getPeriodRange(period, settings) {
   if (period === "weekly") {
     const day = nowLocal.getDay();
     const daysSinceMonday = (day + 6) % 7;
-    let monday = addDays(-daysSinceMonday, nowLocal);
-    if (daysSinceMonday === 0 && nowLocal.getHours() < cut) {
-      monday = addDays(-7, monday);
-    }
+    const monday = addDays(-daysSinceMonday, nowLocal);
     startLocal.setFullYear(
       monday.getFullYear(),
       monday.getMonth(),
       monday.getDate()
     );
-    startLocal.setHours(cut);
+    startLocal.setHours(0);
     const endLocal = addDays(7, startLocal);
     return {
       startUTC: new Date(startLocal.getTime() - offset * 60_000),
@@ -80,15 +69,12 @@ function getPeriodRange(period, settings) {
   }
 
   const first = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), 1);
-  if (nowLocal.getDate() === 1 && nowLocal.getHours() < cut) {
-    first.setMonth(first.getMonth() - 1);
-  }
   startLocal.setFullYear(
     first.getFullYear(),
     first.getMonth(),
     first.getDate()
   );
-  startLocal.setHours(cut);
+  startLocal.setHours(0);
   const nextMonth = new Date(
     startLocal.getFullYear(),
     startLocal.getMonth() + 1,
@@ -189,8 +175,16 @@ async function tick() {
   const recipients = await prisma.reportRecipient.findMany({
     where: { isActive: true },
   });
+  console.log(recipients, "=====");
   for (const r of recipients) {
-    if (r.sendTimeMin === minutes) {
+    const parseTime = (t) => {
+      if (!t) return -1;
+      const [hh, mm] = String(t).split(":");
+      return Number(hh || 0) * 60 + Number(mm || 0);
+    };
+    const target = parseTime(r.sendTime);
+    console.log(target, "=====", minutes);
+    if (target === minutes) {
       const period = String(r.reportType).toLowerCase();
       const { filename, csv } = await generateCsv(period);
       const dir = join(process.cwd(), "reports");

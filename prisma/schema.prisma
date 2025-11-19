@@ -8,33 +8,34 @@ datasource db {
 }
 
 model User {
-  id            Int            @id @default(autoincrement())
-  email         String?        @unique
-  username      String         @unique
-  pinHash       String?        @map("pin_hash")
-  name          String
-  role          String         @default("staff")
-  outletId      Int?           @map("outlet_id")
-  isActive      Boolean        @default(true) @map("is_active")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  wasteEntries  WasteEntry[]
-  outlet        Outlet?        @relation(fields: [outletId], references: [id])
+  id           Int          @id @default(autoincrement())
+  email        String?      @unique
+  username     String       @unique
+  pinHash      String?      @map("pin_hash")
+  name         String
+  role         String       @default("staff")
+  outletId     Int?         @map("outlet_id")
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  outlet       Outlet?      @relation(fields: [outletId], references: [id])
+  wasteEntries WasteEntry[]
 
   @@index([outletId])
   @@index([isActive])
   @@map("users")
 }
+
 model Outlet {
-  id           Int           @id @default(autoincrement())
-  outletCode   String        @unique @map("outlet_code") @db.VarChar(20)
-  name         String        @db.VarChar(100)
-  address      String?       @db.Text
-  timezone     String        @default("UTC") @db.VarChar(50)
-  closingTime   String?      @map("closing_time") @db.VarChar(5)
-  isActive     Boolean       @default(true) @map("is_active")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  id           Int          @id @default(autoincrement())
+  outletCode   String       @unique @map("outlet_code") @db.VarChar(20)
+  name         String       @db.VarChar(100)
+  address      String?      @db.Text
+  timezone     String       @default("UTC") @db.VarChar(50)
+  closingTime  String?      @map("closing_time") @db.VarChar(5)
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
   users        User[]
   wasteEntries WasteEntry[]
 
@@ -44,16 +45,16 @@ model Outlet {
 }
 
 model WasteItem {
-  id           Int           @id @default(autoincrement())
-  itemCode     String        @unique @map("item_code") @db.VarChar(20)
-  label        String        @db.VarChar(100)
-  unit         String        @db.VarChar(20)
-  icon         String?       @db.VarChar(50)
-  color        String        @default("#FF6B35") @db.VarChar(7)
-  displayOrder Int           @default(0) @map("display_order")
-  isActive     Boolean       @default(true) @map("is_active")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  id           Int          @id @default(autoincrement())
+  itemCode     String       @unique @map("item_code") @db.VarChar(20)
+  label        String       @db.VarChar(100)
+  unit         String       @db.VarChar(20)
+  icon         String?      @db.VarChar(50)
+  color        String       @default("#FF6B35") @db.VarChar(7)
+  displayOrder Int          @default(0) @map("display_order")
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
   wasteEntries WasteEntry[]
 
   @@index([isActive])
@@ -62,53 +63,42 @@ model WasteItem {
 }
 
 model WasteEntry {
-  id          Int          @id @default(autoincrement())
-  outletId    Int          @map("outlet_id")
-  itemId      Int          @map("item_id")
-  userId      Int?         @map("user_id")
-  quantity    Decimal      @db.Decimal(10, 3)
-  unit        String       @db.VarChar(20)
-  notes       String?      @db.Text
-  recordedAt  DateTime     @default(now()) @map("recorded_at")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  
-  outlet      Outlet       @relation(fields: [outletId], references: [id])
-  item        WasteItem    @relation(fields: [itemId], references: [id])
-  user        User?        @relation(fields: [userId], references: [id])
+  id         Int       @id @default(autoincrement())
+  outletId   Int       @map("outlet_id")
+  itemId     Int       @map("item_id")
+  userId     Int?      @map("user_id")
+  quantity   Decimal   @db.Decimal(10, 3)
+  unit       String    @db.VarChar(20)
+  notes      String?   @db.Text
+  recordedAt DateTime  @default(now()) @map("recorded_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  item       WasteItem @relation(fields: [itemId], references: [id])
+  outlet     Outlet    @relation(fields: [outletId], references: [id])
+  user       User?     @relation(fields: [userId], references: [id])
 
   @@index([outletId, recordedAt])
   @@index([itemId])
   @@index([recordedAt])
+  @@index([userId], map: "waste_entries_user_id_fkey")
   @@map("waste_entries")
 }
 
-// Reporting configuration
-model ReportSetting {
-  id               Int      @id @default(autoincrement())
-  timezone         String   @db.VarChar(50)
-  utcOffsetMinutes Int      @default(0) @map("utc_offset_minutes")
-  cutOffHour       Int      @default(0) @map("cut_off_hour")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
 
-  @@map("report_settings")
+model ReportRecipient {
+  id         Int        @id @default(autoincrement())
+  email      String     @unique @db.VarChar(255)
+  reportType ReportType
+  sendTime   String     @map("send_time") @db.VarChar(5)
+  isActive   Boolean    @default(true) @map("is_active")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  @@index([reportType, isActive])
+  @@map("report_recipients")
 }
 
 enum ReportType {
   DAILY
   WEEKLY
   MONTHLY
-}
-
-model ReportRecipient {
-  id          Int        @id @default(autoincrement())
-  email       String     @unique @db.VarChar(255)
-  reportType  ReportType
-  sendTimeMin Int        @map("send_time_min") // minutes from midnight in venue local time
-  isActive    Boolean    @default(true) @map("is_active")
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
-
-  @@index([reportType, isActive])
-  @@map("report_recipients")
 }

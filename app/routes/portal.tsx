@@ -6,10 +6,40 @@ import { Form, useActionData } from "react-router";
 const prisma = new PrismaClient();
 
 export async function loader({}: Route.LoaderArgs) {
-  const outlets = await prisma.outlet.findMany({ select: { id: true, outletCode: true, name: true, timezone: true, closingTime: true } });
-  const recipients = await prisma.reportRecipient.findMany({ orderBy: { id: "asc" }, select: { id: true, email: true, reportType: true, sendTimeMin: true, isActive: true } });
-  const items = await prisma.wasteItem.findMany({ orderBy: { displayOrder: "asc" }, select: { id: true, itemCode: true, label: true, unit: true, icon: true, color: true, displayOrder: true, isActive: true } });
-  return { outlets, recipients, items };
+  const required = process.env.IS_REQUIRED_LOGIN === "true";
+  const outlets = await prisma.outlet.findMany({
+    select: {
+      id: true,
+      outletCode: true,
+      name: true,
+      timezone: true,
+      closingTime: true,
+    },
+  });
+  const recipients = await prisma.reportRecipient.findMany({
+    orderBy: { id: "asc" },
+    select: {
+      id: true,
+      email: true,
+      reportType: true,
+      sendTime: true,
+      isActive: true,
+    },
+  });
+  const items = await prisma.wasteItem.findMany({
+    orderBy: { displayOrder: "asc" },
+    select: {
+      id: true,
+      itemCode: true,
+      label: true,
+      unit: true,
+      icon: true,
+      color: true,
+      displayOrder: true,
+      isActive: true,
+    },
+  });
+  return { outlets, recipients, items, required };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -19,39 +49,57 @@ export async function action({ request }: Route.ActionArgs) {
   if (model === "outlet" && intent === "update") {
     const id = Number(form.get("id"));
     const closingTime = String(form.get("closingTime") || "").trim() || null;
-    await prisma.outlet.update({ where: { id }, data: { closingTime } });
-    return new Response(JSON.stringify({ ok: true, message: "Outlet updated" }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    const timezone = String(form.get("timezone") || "UTC").trim() || "UTC";
+    await prisma.outlet.update({ where: { id }, data: { closingTime, timezone } });
+    return new Response(
+      JSON.stringify({ ok: true, message: "Outlet updated" }),
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
   if (model === "recipient") {
     if (intent === "create") {
       const email = String(form.get("email"));
       const reportType = String(form.get("reportType"));
-      const sendTimeMin = Number(form.get("sendTimeMin") || 0);
+      const sendTime = String(form.get("sendTime") || "").slice(0, 5);
       const isActive = String(form.get("isActive")) === "on";
-      await prisma.reportRecipient.create({ data: { email, reportType: reportType as any, sendTimeMin, isActive } });
-      return new Response(JSON.stringify({ ok: true, message: "Recipient added" }), {
-        headers: { "Content-Type": "application/json" },
+      await prisma.reportRecipient.create({
+        data: { email, reportType: reportType as any, sendTime, isActive },
       });
+      return new Response(
+        JSON.stringify({ ok: true, message: "Recipient added" }),
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
     if (intent === "update") {
       const id = Number(form.get("id"));
       const email = String(form.get("email"));
       const reportType = String(form.get("reportType"));
-      const sendTimeMin = Number(form.get("sendTimeMin") || 0);
+      const sendTime = String(form.get("sendTime") || "").slice(0, 5);
       const isActive = String(form.get("isActive")) === "on";
-      await prisma.reportRecipient.update({ where: { id }, data: { email, reportType: reportType as any, sendTimeMin, isActive } });
-      return new Response(JSON.stringify({ ok: true, message: "Recipient updated" }), {
-        headers: { "Content-Type": "application/json" },
+      await prisma.reportRecipient.update({
+        where: { id },
+        data: { email, reportType: reportType as any, sendTime, isActive },
       });
+      return new Response(
+        JSON.stringify({ ok: true, message: "Recipient updated" }),
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
     if (intent === "delete") {
       const id = Number(form.get("id"));
       await prisma.reportRecipient.delete({ where: { id } });
-      return new Response(JSON.stringify({ ok: true, message: "Recipient deleted" }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ ok: true, message: "Recipient deleted" }),
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
   }
   if (model === "item") {
@@ -63,7 +111,9 @@ export async function action({ request }: Route.ActionArgs) {
       const color = String(form.get("color") || "#FF6B35");
       const displayOrder = Number(form.get("displayOrder") || 0);
       const isActive = String(form.get("isActive")) === "on";
-      await prisma.wasteItem.create({ data: { itemCode, label, unit, icon, color, displayOrder, isActive } });
+      await prisma.wasteItem.create({
+        data: { itemCode, label, unit, icon, color, displayOrder, isActive },
+      });
       return new Response(JSON.stringify({ ok: true, message: "Item added" }), {
         headers: { "Content-Type": "application/json" },
       });
@@ -76,29 +126,50 @@ export async function action({ request }: Route.ActionArgs) {
       const color = String(form.get("color") || "#FF6B35");
       const displayOrder = Number(form.get("displayOrder") || 0);
       const isActive = String(form.get("isActive")) === "on";
-      await prisma.wasteItem.update({ where: { id }, data: { label, unit, icon, color, displayOrder, isActive } });
-      return new Response(JSON.stringify({ ok: true, message: "Item updated" }), {
-        headers: { "Content-Type": "application/json" },
+      await prisma.wasteItem.update({
+        where: { id },
+        data: { label, unit, icon, color, displayOrder, isActive },
       });
+      return new Response(
+        JSON.stringify({ ok: true, message: "Item updated" }),
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
     if (intent === "delete") {
       const id = Number(form.get("id"));
       await prisma.wasteItem.delete({ where: { id } });
-      return new Response(JSON.stringify({ ok: true, message: "Item deleted" }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ ok: true, message: "Item deleted" }),
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
   }
   // WasteReason removed
-  return new Response(JSON.stringify({ error: "Invalid request" }), { status: 400, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify({ error: "Invalid request" }), {
+    status: 400,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 export default function Portal({ loaderData }: Route.ComponentProps) {
-  const { outlets, recipients, items } = loaderData as any;
+  const { outlets, recipients, items, required } = loaderData as any;
+  console.log(recipients, "=====");
   const [tab, setTab] = useState<string>("outlet");
   const [toast, setToast] = useState<string>("");
   const timerRef = useRef<number | null>(null);
   const actionData = useActionData() as any;
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("user");
+      if (!raw && required) {
+        window.location.href = "/login-pin";
+      }
+    } catch {}
+  }, [required]);
   useEffect(() => {
     if (actionData && actionData.ok && actionData.message) {
       setToast(actionData.message);
@@ -109,15 +180,36 @@ export default function Portal({ loaderData }: Route.ComponentProps) {
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
   }, [actionData]);
+  const toHHMM = (v: any) => {
+    const s = String(v ?? "");
+    if (!s) return "08:00";
+    if (s.includes(":")) return s.slice(0, 5);
+    const n = Number(s);
+    if (!Number.isNaN(n)) {
+      const hh = Math.floor(n / 60);
+      const mm = n % 60;
+      return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
+    }
+    const padded = s.padStart(4, "0");
+    return padded.slice(0, 2) + ":" + padded.slice(2, 4);
+  };
   return (
     <div className="min-h-screen w-full p-4">
       <div className="max-w-6xl mx-auto">
         {toast && (
-          <div className="mb-3 px-4 py-2 rounded bg-green-600 text-white">{toast}</div>
+          <div className="mb-3 px-4 py-2 rounded bg-green-600 text-white">
+            {toast}
+          </div>
         )}
         <div className="flex gap-2 mb-4">
           {["outlet", "recipients", "items"].map((t) => (
-            <button key={t} className={`px-3 py-2 rounded ${tab === t ? "bg-blue-600 text-white" : "bg-gray-200"}`} onClick={() => setTab(t)}>{t}</button>
+            <button
+              key={t}
+              className={`px-3 py-2 rounded ${tab === t ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+              onClick={() => setTab(t)}
+            >
+              {t}
+            </button>
           ))}
         </div>
         {tab === "outlet" && (
@@ -138,14 +230,26 @@ export default function Portal({ loaderData }: Route.ComponentProps) {
                   <tr key={o.id} className="border-t">
                     <td className="p-2">{o.outletCode}</td>
                     <td className="p-2">{o.name}</td>
-                    <td className="p-2">{o.timezone}</td>
                     <td className="p-2">
                       <Form method="post" className="flex gap-2 items-center">
                         <input type="hidden" name="model" value="outlet" />
                         <input type="hidden" name="intent" value="update" />
                         <input type="hidden" name="id" value={o.id} />
-                        <input name="closingTime" defaultValue={o.closingTime || ""} placeholder="HH:MM" className="border rounded px-2 py-1 w-24" />
-                        <button className="px-2 py-1 rounded bg-blue-600 text-white">Save</button>
+                        <input
+                          name="timezone"
+                          defaultValue={o.timezone}
+                          placeholder="UTC or UTC+8"
+                          className="border rounded px-2 py-1 w-28"
+                        />
+                        <input
+                          name="closingTime"
+                          defaultValue={o.closingTime || ""}
+                          placeholder="HH:MM"
+                          className="border rounded px-2 py-1 w-24"
+                        />
+                        <button className="px-2 py-1 rounded bg-blue-600 text-white">
+                          Save
+                        </button>
                       </Form>
                     </td>
                     <td className="p-2"></td>
@@ -161,58 +265,109 @@ export default function Portal({ loaderData }: Route.ComponentProps) {
             <Form method="post" className="flex flex-wrap gap-2">
               <input type="hidden" name="model" value="recipient" />
               <input type="hidden" name="intent" value="create" />
-              <input name="email" placeholder="email" className="border rounded px-2 py-1" />
+              <input
+                name="email"
+                placeholder="email"
+                className="border rounded px-2 py-1"
+              />
               <select name="reportType" className="border rounded px-2 py-1">
                 <option value="DAILY">DAILY</option>
                 <option value="WEEKLY">WEEKLY</option>
                 <option value="MONTHLY">MONTHLY</option>
               </select>
-              <input name="sendTimeMin" type="number" min={0} max={1439} placeholder="minutes" className="border rounded px-2 py-1 w-28" />
-              <label className="flex items-center gap-1"><input type="checkbox" name="isActive" defaultChecked /> Active</label>
-              <button className="px-3 py-1 rounded bg-green-600 text-white">Add</button>
+              <input
+                name="sendTime"
+                type="time"
+                step="60"
+                className="border rounded px-2 py-1 w-36"
+              />
+              <label className="flex items-center gap-1">
+                <input type="checkbox" name="isActive" defaultChecked /> Active
+              </label>
+              <button className="px-3 py-1 rounded bg-green-600 text-white">
+                Add
+              </button>
             </Form>
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left">
                   <th className="p-2">Email</th>
                   <th className="p-2">Type</th>
-                  <th className="p-2">Send Minutes</th>
+                  <th className="p-2">Send Time (HH:MM)</th>
                   <th className="p-2">Active</th>
                   <th className="p-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {recipients.map((r: any) => (
-                  <tr key={r.id} className="border-t">
-                    <td className="p-2">
-                      <Form method="post" className="flex gap-2 items-center">
+                {recipients.map((r: any) => {
+                  const formId = `rec-${r.id}`;
+                  return (
+                    <tr key={r.id} className="border-t">
+                      <Form id={formId} method="post">
                         <input type="hidden" name="model" value="recipient" />
-                        <input type="hidden" name="intent" value="update" />
                         <input type="hidden" name="id" value={r.id} />
-                        <input name="email" defaultValue={r.email} className="border rounded px-2 py-1" />
-                        <select name="reportType" defaultValue={r.reportType} className="border rounded px-2 py-1">
+                      </Form>
+                      <td className="p-2">
+                        <input
+                          name="email"
+                          defaultValue={r.email}
+                          form={formId}
+                          className="border rounded px-2 py-1"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <select
+                          name="reportType"
+                          defaultValue={r.reportType}
+                          form={formId}
+                          className="border rounded px-2 py-1"
+                        >
                           <option value="DAILY">DAILY</option>
                           <option value="WEEKLY">WEEKLY</option>
                           <option value="MONTHLY">MONTHLY</option>
                         </select>
-                        <input name="sendTimeMin" type="number" defaultValue={r.sendTimeMin} className="border rounded px-2 py-1 w-24" />
-                        <label className="flex items-center gap-1"><input type="checkbox" name="isActive" defaultChecked={r.isActive} /> Active</label>
-                        <button className="px-2 py-1 rounded bg-blue-600 text-white">Save</button>
-                      </Form>
-                    </td>
-                    <td className="p-2"></td>
-                    <td className="p-2"></td>
-                    <td className="p-2"></td>
-                    <td className="p-2">
-                      <Form method="post">
-                        <input type="hidden" name="model" value="recipient" />
-                        <input type="hidden" name="intent" value="delete" />
-                        <input type="hidden" name="id" value={r.id} />
-                        <button className="px-2 py-1 rounded bg-red-600 text-white">Delete</button>
-                      </Form>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="p-2">
+                        <input
+                          name="sendTime"
+                          type="time"
+                          step="60"
+                          defaultValue={toHHMM(r.sendTime)}
+                          form={formId}
+                          className="border rounded px-2 py-1 w-36"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            name="isActive"
+                            defaultChecked={r.isActive}
+                            form={formId}
+                          /> Active
+                        </label>
+                      </td>
+                      <td className="p-2">
+                        <button
+                          name="intent"
+                          value="update"
+                          form={formId}
+                          className="px-2 py-1 rounded bg-blue-600 text-white"
+                        >
+                          Save
+                        </button>
+                        <button
+                          name="intent"
+                          value="delete"
+                          form={formId}
+                          className="px-2 py-1 rounded bg-red-600 text-white ml-2"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -223,14 +378,43 @@ export default function Portal({ loaderData }: Route.ComponentProps) {
             <Form method="post" className="flex flex-wrap gap-2">
               <input type="hidden" name="model" value="item" />
               <input type="hidden" name="intent" value="create" />
-              <input name="itemCode" placeholder="code" className="border rounded px-2 py-1 w-28" />
-              <input name="label" placeholder="label" className="border rounded px-2 py-1" />
-              <input name="unit" placeholder="unit" className="border rounded px-2 py-1 w-24" />
-              <input name="icon" placeholder="icon" className="border rounded px-2 py-1 w-24" />
-              <input name="color" placeholder="#hex" className="border rounded px-2 py-1 w-28" />
-              <input name="displayOrder" type="number" placeholder="order" className="border rounded px-2 py-1 w-24" />
-              <label className="flex items-center gap-1"><input type="checkbox" name="isActive" defaultChecked /> Active</label>
-              <button className="px-3 py-1 rounded bg-green-600 text-white">Add</button>
+              <input
+                name="itemCode"
+                placeholder="code"
+                className="border rounded px-2 py-1 w-28"
+              />
+              <input
+                name="label"
+                placeholder="label"
+                className="border rounded px-2 py-1"
+              />
+              <input
+                name="unit"
+                placeholder="unit"
+                className="border rounded px-2 py-1 w-24"
+              />
+              <input
+                name="icon"
+                placeholder="icon"
+                className="border rounded px-2 py-1 w-24"
+              />
+              <input
+                name="color"
+                placeholder="#hex"
+                className="border rounded px-2 py-1 w-28"
+              />
+              <input
+                name="displayOrder"
+                type="number"
+                placeholder="order"
+                className="border rounded px-2 py-1 w-24"
+              />
+              <label className="flex items-center gap-1">
+                <input type="checkbox" name="isActive" defaultChecked /> Active
+              </label>
+              <button className="px-3 py-1 rounded bg-green-600 text-white">
+                Add
+              </button>
             </Form>
             <table className="w-full text-sm">
               <thead>
@@ -250,17 +434,50 @@ export default function Portal({ loaderData }: Route.ComponentProps) {
                   <tr key={it.id} className="border-t">
                     <td className="p-2">{it.itemCode}</td>
                     <td className="p-2">
-                      <Form method="post" className="flex flex-wrap gap-2 items-center">
+                      <Form
+                        method="post"
+                        className="flex flex-wrap gap-2 items-center"
+                      >
                         <input type="hidden" name="model" value="item" />
                         <input type="hidden" name="intent" value="update" />
                         <input type="hidden" name="id" value={it.id} />
-                        <input name="label" defaultValue={it.label} className="border rounded px-2 py-1" />
-                        <input name="unit" defaultValue={it.unit} className="border rounded px-2 py-1 w-24" />
-                        <input name="icon" defaultValue={it.icon || ""} className="border rounded px-2 py-1 w-24" />
-                        <input name="color" defaultValue={it.color} className="border rounded px-2 py-1 w-28" />
-                        <input name="displayOrder" type="number" defaultValue={it.displayOrder} className="border rounded px-2 py-1 w-24" />
-                        <label className="flex items-center gap-1"><input type="checkbox" name="isActive" defaultChecked={it.isActive} /> Active</label>
-                        <button className="px-2 py-1 rounded bg-blue-600 text-white">Save</button>
+                        <input
+                          name="label"
+                          defaultValue={it.label}
+                          className="border rounded px-2 py-1"
+                        />
+                        <input
+                          name="unit"
+                          defaultValue={it.unit}
+                          className="border rounded px-2 py-1 w-24"
+                        />
+                        <input
+                          name="icon"
+                          defaultValue={it.icon || ""}
+                          className="border rounded px-2 py-1 w-24"
+                        />
+                        <input
+                          name="color"
+                          defaultValue={it.color}
+                          className="border rounded px-2 py-1 w-28"
+                        />
+                        <input
+                          name="displayOrder"
+                          type="number"
+                          defaultValue={it.displayOrder}
+                          className="border rounded px-2 py-1 w-24"
+                        />
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            name="isActive"
+                            defaultChecked={it.isActive}
+                          />{" "}
+                          Active
+                        </label>
+                        <button className="px-2 py-1 rounded bg-blue-600 text-white">
+                          Save
+                        </button>
                       </Form>
                     </td>
                     <td className="p-2"></td>
@@ -272,7 +489,9 @@ export default function Portal({ loaderData }: Route.ComponentProps) {
                         <input type="hidden" name="model" value="item" />
                         <input type="hidden" name="intent" value="delete" />
                         <input type="hidden" name="id" value={it.id} />
-                        <button className="px-2 py-1 rounded bg-red-600 text-white">Delete</button>
+                        <button className="px-2 py-1 rounded bg-red-600 text-white">
+                          Delete
+                        </button>
                       </Form>
                     </td>
                   </tr>

@@ -10,7 +10,7 @@ This guide helps you start the project, initialize the MySQL database, understan
 ## Environment Configuration
 
 - Edit `.env` and set MySQL connection variables:
-  - `DATABASE_URL="mysql://root@localhost:3306/food_waste_tracking"`
+  - `DATABASE_URL="mysql://root:secret@localhost:3306/food_waste_tracking"`
   - `JWT_SECRET="your-secret-key-change-in-production"`
 
 ## Initialize the Database

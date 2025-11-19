@@ -10,8 +10,13 @@ function getSettingsDefaults() {
 
 async function getSettings() {
   try {
-    const s = await prisma.reportSetting.findFirst();
-    return s ? { timezone: s.timezone, utcOffsetMinutes: s.utcOffsetMinutes, cutOffHour: s.cutOffHour } : getSettingsDefaults();
+    const o = await prisma.outlet.findFirst({ where: { isActive: true }, orderBy: { id: "asc" }, select: { timezone: true } });
+    const tz = o?.timezone || "UTC";
+    const fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset", hour12: false });
+    const name = fmt.formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value || "UTC";
+    const m = name.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/);
+    const offset = m ? Number(m[1]) * 60 + Number(m[2] || 0) : 0;
+    return { timezone: tz, utcOffsetMinutes: offset, cutOffHour: 0 };
   } catch {
     return getSettingsDefaults();
   }
@@ -21,31 +26,27 @@ function getPeriodRange(period, settings) {
   const offset = settings.utcOffsetMinutes;
   const nowUTC = new Date();
   const nowLocal = new Date(nowUTC.getTime() + offset * 60_000);
-  const cut = settings.cutOffHour;
   const addDays = (d, date) => { const n = new Date(date); n.setDate(n.getDate() + d); return n; };
   const startLocal = new Date(nowLocal);
   startLocal.setMinutes(0, 0, 0);
   if (period === "daily") {
-    if (nowLocal.getHours() < cut) { const prev = addDays(-1, nowLocal); startLocal.setFullYear(prev.getFullYear(), prev.getMonth(), prev.getDate()); }
-    else { startLocal.setFullYear(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate()); }
-    startLocal.setHours(cut);
+    startLocal.setFullYear(nowLocal.getFullYear(), nowLocal.getMonth(), nowLocal.getDate());
+    startLocal.setHours(0);
     const endLocal = addDays(1, startLocal);
     return { startUTC: new Date(startLocal.getTime() - offset * 60_000), endUTC: new Date(endLocal.getTime() - offset * 60_000) };
   }
   if (period === "weekly") {
     const day = nowLocal.getDay();
     const daysSinceMonday = (day + 6) % 7;
-    let monday = addDays(-daysSinceMonday, nowLocal);
-    if (daysSinceMonday === 0 && nowLocal.getHours() < cut) { monday = addDays(-7, monday); }
+    const monday = addDays(-daysSinceMonday, nowLocal);
     startLocal.setFullYear(monday.getFullYear(), monday.getMonth(), monday.getDate());
-    startLocal.setHours(cut);
+    startLocal.setHours(0);
     const endLocal = addDays(7, startLocal);
     return { startUTC: new Date(startLocal.getTime() - offset * 60_000), endUTC: new Date(endLocal.getTime() - offset * 60_000) };
   }
   const first = new Date(nowLocal.getFullYear(), nowLocal.getMonth(), 1);
-  if (nowLocal.getDate() === 1 && nowLocal.getHours() < cut) { first.setMonth(first.getMonth() - 1); }
   startLocal.setFullYear(first.getFullYear(), first.getMonth(), first.getDate());
-  startLocal.setHours(cut);
+  startLocal.setHours(0);
   const nextMonth = new Date(startLocal.getFullYear(), startLocal.getMonth() + 1, startLocal.getDate());
   return { startUTC: new Date(startLocal.getTime() - offset * 60_000), endUTC: new Date(nextMonth.getTime() - offset * 60_000) };
 }
