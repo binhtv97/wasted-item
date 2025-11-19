@@ -178,6 +178,7 @@ async function sendReportEmail({ to, period, csv }) {
 async function tick() {
   const settings = await getSettings();
   const offset = settings.utcOffsetMinutes;
+  console.log(offset, "=====");
   const nowUTC = new Date();
   const nowLocal = new Date(nowUTC.getTime() + offset * 60_000);
   const minutes = nowLocal.getHours() * 60 + nowLocal.getMinutes();
