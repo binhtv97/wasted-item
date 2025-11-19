@@ -13,11 +13,16 @@ function getSettingsDefaults() {
 export async function getSettings() {
   try {
     const o = await prisma.outlet.findFirst({ where: { isActive: true }, orderBy: { id: "asc" }, select: { timezone: true } });
-    const tz = o?.timezone || "UTC";
+    const tz = String(o?.timezone || "UTC").trim();
+    const m1 = tz.match(/^(UTC|GMT)([+-]\d{1,2})(?::(\d{2}))?$/i);
+    if (m1) {
+      const offset = Number(m1[2]) * 60 + Number(m1[3] || 0);
+      return { timezone: tz, utcOffsetMinutes: offset, cutOffHour: 0 };
+    }
     const fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset", hour12: false });
     const name = fmt.formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value || "UTC";
-    const m = name.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/);
-    const offset = m ? Number(m[1]) * 60 + Number(m[2] || 0) : 0;
+    const m2 = name.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/);
+    const offset = m2 ? Number(m2[1]) * 60 + Number(m2[2] || 0) : 0;
     return { timezone: tz, utcOffsetMinutes: offset, cutOffHour: 0 };
   } catch {
     return getSettingsDefaults();
