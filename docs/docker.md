@@ -103,3 +103,10 @@ docker run --network=host \
 
 - The `postbuild` script in `package.json` only performs verification (export CSV daily + run worker once). For continuous operation, use the `worker` service (Compose) or the `report:worker:run` script.
 - On Linux, if not using host network, you can map `host.docker.internal` with `--add-host=host.docker.internal:host-gateway` and ensure MySQL listens on `0.0.0.0`.
+ - Default seed credentials:
+   - Admin: `username = testadmin`, `PIN = 1111`
+   - User: `username = testuser`, `PIN = 1234`
+ - If login fails:
+   - Ensure you ran the seed against the same DB as the app (`DATABASE_URL` identical).
+   - Check `users` table with `npx prisma studio` to confirm credentials exist.
+   - Re-run seed or adjust pins if you modified seed logic.

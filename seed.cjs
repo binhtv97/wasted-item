@@ -116,12 +116,7 @@ async function main() {
     userId: user.id,
   });
 
-  const existingSetting = await prisma.reportSetting.findFirst();
-  if (!existingSetting) {
-    await prisma.reportSetting.create({
-      data: { timezone: "UTC" },
-    });
-  }
+  // ReportSetting model removed; timezone is stored per Outlet.
 
   const existingRecipients = await prisma.reportRecipient.count();
   if (existingRecipients === 0) {
