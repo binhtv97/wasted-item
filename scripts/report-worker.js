@@ -179,18 +179,14 @@ async function sendReportEmail({ to, period, csv }) {
 async function tick() {
   const settings = await getSettings();
   const offset = settings.utcOffsetMinutes;
-  console.log(offset, "=====");
   const nowUTC = new Date();
-  console.log(nowUTC, "=====nowUTC");
   const nowLocalMs = nowUTC.getTime() + offset * 60_000;
   const nowLocal = new Date(nowLocalMs);
-  console.log(nowLocal, "=====nowLocal");
   const minutes = nowLocal.getHours() * 60 + nowLocal.getMinutes();
 
   const recipients = await prisma.reportRecipient.findMany({
     where: { isActive: true },
   });
-  console.log(recipients, "=====");
   for (const r of recipients) {
     const parseTime = (t) => {
       if (!t) return -1;
@@ -198,7 +194,6 @@ async function tick() {
       return Number(hh || 0) * 60 + Number(mm || 0);
     };
     const target = parseTime(r.sendTime);
-    console.log(target, "=====", minutes);
     if (target === minutes) {
       const period = String(r.reportType).toLowerCase();
       const { filename, csv } = await generateCsv(period);
@@ -220,14 +215,14 @@ async function main() {
   const once = process.argv.includes("--once");
   console.log(`Report worker started${once ? " (once)" : ""}`);
   await tick();
-  // if (once) {
-  //   try {
-  //     await prisma.$disconnect();
-  //   } catch {}
-  //   console.log("Report worker finished (once)");
-  //   return;
-  // }
-  setInterval(tick, 10_000);
+  if (once) {
+    try {
+      await prisma.$disconnect();
+    } catch {}
+    console.log("Report worker finished (once)");
+    return;
+  }
+  setInterval(tick, 60_000);
 }
 
 main().catch((e) => {
