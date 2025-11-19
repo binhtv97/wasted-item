@@ -10,12 +10,22 @@ function getSettingsDefaults() {
 }
 
 async function getSettings() {
-  const o = await prisma.outlet.findFirst({ where: { isActive: true }, orderBy: { id: "asc" }, select: { timezone: true } });
+  const o = await prisma.outlet.findFirst({
+    where: { isActive: true },
+    orderBy: { id: "asc" },
+    select: { timezone: true },
+  });
   const tz = o?.timezone || "UTC";
   let offset = 0;
   try {
-    const fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset", hour12: false });
-    const name = fmt.formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value || "UTC";
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      timeZoneName: "shortOffset",
+      hour12: false,
+    });
+    const name =
+      fmt.formatToParts(new Date()).find((p) => p.type === "timeZoneName")
+        ?.value || "UTC";
     const m = name.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/);
     offset = m ? Number(m[1]) * 60 + Number(m[2] || 0) : 0;
   } catch {}
@@ -205,14 +215,14 @@ async function main() {
   const once = process.argv.includes("--once");
   console.log(`Report worker started${once ? " (once)" : ""}`);
   await tick();
-  if (once) {
-    try {
-      await prisma.$disconnect();
-    } catch {}
-    console.log("Report worker finished (once)");
-    return;
-  }
-  setInterval(tick, 60_000);
+  // if (once) {
+  //   try {
+  //     await prisma.$disconnect();
+  //   } catch {}
+  //   console.log("Report worker finished (once)");
+  //   return;
+  // }
+  setInterval(tick, 10_000);
 }
 
 main().catch((e) => {
