@@ -112,7 +112,7 @@ docker run --network=host \
   - Re-run seed or adjust pins if you modified seed logic.
 
 LINUX:
-
+docker compose down
 Step 1: docker compose --env-file .env build --no-cache
 Step 2: docker compose --env-file .env up -d
 Step 3: docker compose --env-file .env exec app node /app/seed.cjs

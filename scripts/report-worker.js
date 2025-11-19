@@ -5,10 +5,6 @@ import nodemailer from "nodemailer";
 
 const prisma = new PrismaClient();
 
-function getSettingsDefaults() {
-  return { timezone: "UTC", utcOffsetMinutes: 0, cutOffHour: 0 };
-}
-
 async function getSettings() {
   const o = await prisma.outlet.findFirst({
     where: { isActive: true },
@@ -16,19 +12,24 @@ async function getSettings() {
     select: { timezone: true },
   });
   const tz = o?.timezone || "UTC";
+  const direct = tz.match(/^UTC([+-]\d{1,2})(?::(\d{2}))?$/i);
   let offset = 0;
-  try {
-    const fmt = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz,
-      timeZoneName: "shortOffset",
-      hour12: false,
-    });
-    const name =
-      fmt.formatToParts(new Date()).find((p) => p.type === "timeZoneName")
-        ?.value || "UTC";
-    const m = name.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/);
-    offset = m ? Number(m[1]) * 60 + Number(m[2] || 0) : 0;
-  } catch {}
+  if (direct) {
+    offset = Number(direct[1]) * 60 + Number(direct[2] || 0);
+  } else {
+    try {
+      const fmt = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        timeZoneName: "shortOffset",
+        hour12: false,
+      });
+      const name =
+        fmt.formatToParts(new Date()).find((p) => p.type === "timeZoneName")
+          ?.value || "UTC";
+      const m = name.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/);
+      offset = m ? Number(m[1]) * 60 + Number(m[2] || 0) : 0;
+    } catch {}
+  }
   return { timezone: tz, utcOffsetMinutes: offset, cutOffHour: 0 };
 }
 
