@@ -11,11 +11,11 @@ async function getSettings() {
     orderBy: { id: "asc" },
     select: { timezone: true },
   });
-  const tz = o?.timezone || "UTC";
-  const direct = tz.match(/^UTC([+-]\d{1,2})(?::(\d{2}))?$/i);
+  const tz = String(o?.timezone || "UTC").trim();
+  const direct = tz.match(/^(UTC|GMT)([+-]\d{1,2})(?::(\d{2}))?$/i);
   let offset = 0;
   if (direct) {
-    offset = Number(direct[1]) * 60 + Number(direct[2] || 0);
+    offset = Number(direct[2]) * 60 + Number(direct[3] || 0);
   } else {
     try {
       const fmt = new Intl.DateTimeFormat("en-US", {
@@ -181,7 +181,10 @@ async function tick() {
   const offset = settings.utcOffsetMinutes;
   console.log(offset, "=====");
   const nowUTC = new Date();
-  const nowLocal = new Date(nowUTC.getTime() + offset * 60_000);
+  console.log(nowUTC, "=====nowUTC");
+  const nowLocalMs = nowUTC.getTime() + offset * 60_000;
+  const nowLocal = new Date(nowLocalMs);
+  console.log(nowLocal, "=====nowLocal");
   const minutes = nowLocal.getHours() * 60 + nowLocal.getMinutes();
 
   const recipients = await prisma.reportRecipient.findMany({
