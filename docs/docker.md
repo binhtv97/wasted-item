@@ -113,6 +113,9 @@ docker run --network=host \
 
 LINUX:
 docker compose down
-Step 1: docker compose --env-file .env build --no-cache
-Step 2: docker compose --env-file .env up -d
-Step 3: docker compose --env-file .env exec app node /app/seed.cjs
+docker compose --env-file .env build --no-cache
+docker compose --env-file .env up -d
+docker compose --env-file .env exec app node /app/seed.cjs
+
+to check log
+docker logs -f wasted-item-worker-1
